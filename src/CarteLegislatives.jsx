@@ -31,6 +31,23 @@ const MAX_RESULTS_PAGES = 200;
 
 const DEFAULT_FILL = '#cccccc';
 
+const BLOC_NAME_ALIASES = {
+  "ENSEMBLE !": 'Ensemble',
+  'ENSEMBLE (MAJORITE PRESIDENTIELLE)': 'Ensemble',
+  'MAJORITE PRESIDENTIELLE': 'Ensemble',
+  'RECONQUETE !': 'Rassemblement National',
+  'RN - RASSEMBLEMENT NATIONAL': 'Rassemblement National',
+  'RASS. NATIONAL': 'Rassemblement National',
+  'RASSSEMBLEMENT NATIONAL': 'Rassemblement National',
+  'NOUVEAU FRONT POPULAIRE': 'Nouveau Front Populaire',
+  'UNION DE LA GAUCHE': 'Nouveau Front Populaire',
+  'GAUCHE': 'Nouveau Front Populaire',
+  'UNION DE LA DROITE ET DU CENTRE': 'Divers droite',
+  'DROITE': 'Divers droite',
+  'CENTRE': 'Centre',
+  'DIVERS': 'Divers',
+};
+
 const parseNumber = (value) => {
   if (value == null) {
     return Number.NaN;
@@ -58,24 +75,8 @@ const normaliseBlocName = (bloc) => {
   if (upper in NUANCE_TO_BLOC) {
     return NUANCE_TO_BLOC[upper];
   }
-  const alias = {
-    "ENSEMBLE !": 'Ensemble',
-    'ENSEMBLE (MAJORITE PRESIDENTIELLE)': 'Ensemble',
-    'MAJORITE PRESIDENTIELLE': 'Ensemble',
-    'RECONQUETE !': 'Rassemblement National',
-    'RN - RASSEMBLEMENT NATIONAL': 'Rassemblement National',
-    'RASS. NATIONAL': 'Rassemblement National',
-    'RASSSEMBLEMENT NATIONAL': 'Rassemblement National',
-    'NOUVEAU FRONT POPULAIRE': 'Nouveau Front Populaire',
-    'UNION DE LA GAUCHE': 'Nouveau Front Populaire',
-    'GAUCHE': 'Nouveau Front Populaire',
-    'UNION DE LA DROITE ET DU CENTRE': 'Divers droite',
-    'DROITE': 'Divers droite',
-    'CENTRE': 'Centre',
-    'DIVERS': 'Divers',
-  };
-  if (alias[upper]) {
-    return alias[upper];
+  if (BLOC_NAME_ALIASES[upper]) {
+    return BLOC_NAME_ALIASES[upper];
   }
   return raw;
 };
