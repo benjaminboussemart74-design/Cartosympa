@@ -1,0 +1,157 @@
+.app {
+  font-family: 'Segoe UI', Roboto, sans-serif;
+  color: #1f2933;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+header h1 {
+  font-size: 2rem;
+  margin: 0;
+}
+
+header p {
+  margin: 0;
+  color: #52606d;
+}
+
+.legend {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
+}
+
+.legend h2 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.legend ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.5rem 1rem;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.legend-color {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+}
+
+.map-container {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.leaflet-map {
+  width: 100%;
+  min-height: 600px;
+  height: 100%;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.2);
+}
+
+.map-summary {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.map-summary h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1f2933;
+}
+
+.map-summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.map-summary li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #1f2933;
+}
+
+.summary-color {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+}
+
+.summary-label {
+  font-size: 0.95rem;
+}
+
+.summary-value {
+  font-size: 1rem;
+}
+
+.swing-placeholder {
+  margin: 0;
+  padding-top: 0.5rem;
+  font-style: italic;
+  color: #52606d;
+}
+
+.status {
+  padding: 2rem;
+  text-align: center;
+  border-radius: 0.75rem;
+  background: #f3f4f6;
+}
+
+.status.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+@media (max-width: 1024px) {
+  .map-container {
+    grid-template-columns: 1fr;
+  }
+
+  .map-summary {
+    max-height: none;
+  }
+}
