@@ -16,6 +16,7 @@ const GEOJSON_URL =
   'https://static.data.gouv.fr/resources/contours-geographiques-des-circonscriptions-legislatives/20240613-191520/circonscriptions-legislatives-p10.geojson';
 const RESULTS_URL =
   'https://tabular-api.data.gouv.fr/api/resources/6682d0c255dcda5df20b1d90/data/?page_size=1000';
+const MAX_RESULTS_PAGES = 100;
 
 const DEFAULT_FILL = '#cccccc';
 
@@ -167,29 +168,114 @@ const CarteLegislatives = ({ blocColors, swingDelta }) => {
     setLoading(true);
     setError(null);
 
+    const fetchAllResults = async () => {
+      const aggregatedRows = [];
+      const visitedUrls = new Set();
+      let nextUrl = RESULTS_URL;
+      let pageCount = 0;
+
+      const resolveNextUrl = (currentUrl, candidate) => {
+        if (!candidate) {
+          return null;
+        }
+        try {
+          return new URL(candidate, currentUrl).toString();
+        } catch (error) {
+          return null;
+        }
+      };
+
+      while (nextUrl && pageCount < MAX_RESULTS_PAGES) {
+        if (visitedUrls.has(nextUrl)) {
+          break;
+        }
+
+        visitedUrls.add(nextUrl);
+        pageCount += 1;
+
+        const response = await fetch(nextUrl);
+        if (!response.ok) {
+          throw new Error(
+            `Erreur lors du chargement des résultats (${response.status})`
+          );
+        }
+
+        const data = await response.json();
+        const pageRows = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+          ? data
+          : [];
+
+        aggregatedRows.push(...pageRows);
+
+        const discoveredNext =
+          resolveNextUrl(nextUrl, data?.next) ||
+          resolveNextUrl(nextUrl, data?.links?.next) ||
+          resolveNextUrl(nextUrl, data?.pagination?.next);
+
+        if (discoveredNext) {
+          nextUrl = discoveredNext;
+          continue;
+        }
+
+        if (!pageRows.length) {
+          break;
+        }
+
+        try {
+          const candidateUrl = new URL(nextUrl);
+          const paramCandidates = ['page', 'page_number'];
+          let updated = false;
+
+          for (const param of paramCandidates) {
+            const rawValue = candidateUrl.searchParams.get(param);
+            if (rawValue != null) {
+              const numericValue = Number.parseInt(rawValue, 10);
+              if (!Number.isNaN(numericValue)) {
+                candidateUrl.searchParams.set(param, `${numericValue + 1}`);
+                nextUrl = candidateUrl.toString();
+                updated = true;
+                break;
+              }
+            }
+          }
+
+          if (!updated) {
+            if (!candidateUrl.searchParams.has('page')) {
+              candidateUrl.searchParams.set('page', '2');
+              nextUrl = candidateUrl.toString();
+              updated = true;
+            }
+          }
+
+          if (!updated) {
+            break;
+          }
+        } catch (parseError) {
+          break;
+        }
+      }
+
+      if (nextUrl && pageCount >= MAX_RESULTS_PAGES) {
+        throw new Error('Nombre maximum de pages de résultats dépassé');
+      }
+
+      return aggregatedRows;
+    };
+
     const fetchData = async () => {
       try {
-        const [geoResponse, resultsResponse] = await Promise.all([
+        const [geoResponse, rows] = await Promise.all([
           fetch(GEOJSON_URL),
-          fetch(RESULTS_URL),
+          fetchAllResults(),
         ]);
 
         if (!geoResponse.ok) {
           throw new Error(`Erreur lors du chargement des contours (${geoResponse.status})`);
         }
-        if (!resultsResponse.ok) {
-          throw new Error(
-            `Erreur lors du chargement des résultats (${resultsResponse.status})`
-          );
-        }
 
         const geoData = await geoResponse.json();
-        const resultsData = await resultsResponse.json();
-        const rows = Array.isArray(resultsData?.data)
-          ? resultsData.data
-          : Array.isArray(resultsData)
-          ? resultsData
-          : [];
 
         if (isMounted) {
           setGeoJson(geoData);
