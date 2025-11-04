@@ -12,10 +12,15 @@ import {
   WINNER_FLAG_FIELDS,
 } from './constants.js';
 
+// En développement, utilise le proxy configuré dans `vite.config.js` :
+//  - GeoJSON : /geo/...
+//  - Tabular : /tabular/...
+// En production, remplacez par les URLs absolues si nécessaire.
 const GEOJSON_URL =
-  'https://static.data.gouv.fr/resources/contours-geographiques-des-circonscriptions-legislatives/20240613-191520/circonscriptions-legislatives-p10.geojson';
-const RESULTS_URL =
-  'https://tabular-api.data.gouv.fr/api/resources/6682d0c255dcda5df20b1d90/data/?page_size=1000';
+  '/geo/resources/contours-geographiques-des-circonscriptions-legislatives/20240613-191520/circonscriptions-legislatives-p10.geojson';
+const RESULTS_BASE =
+  '/tabular/api/resources/6682d0c255dcda5df20b1d90/data';
+const RESULTS_PAGE_SIZE = 200; // API limite la taille maximale à 200
 
 const DEFAULT_FILL = '#cccccc';
 
@@ -156,7 +161,7 @@ const buildPopupContent = (winner, blocName) => {
   return `<div class="popup-content">${lines.join('<br/>')}</div>`;
 };
 
-const CarteLegislatives = ({ blocColors, swingDelta }) => {
+const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
   const [geoJson, setGeoJson] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -169,27 +174,50 @@ const CarteLegislatives = ({ blocColors, swingDelta }) => {
 
     const fetchData = async () => {
       try {
-        const [geoResponse, resultsResponse] = await Promise.all([
-          fetch(GEOJSON_URL),
-          fetch(RESULTS_URL),
-        ]);
-
+        // Récupère GeoJSON et toutes les pages de résultats (pagination)
+        const geoResponse = await fetch(GEOJSON_URL);
         if (!geoResponse.ok) {
-          throw new Error(`Erreur lors du chargement des contours (${geoResponse.status})`);
-        }
-        if (!resultsResponse.ok) {
+          const text = await geoResponse.text().catch(() => '');
           throw new Error(
-            `Erreur lors du chargement des résultats (${resultsResponse.status})`
+            `Erreur lors du chargement des contours (${geoResponse.status}) ${text ? ': ' + text : ''}`
           );
         }
-
         const geoData = await geoResponse.json();
-        const resultsData = await resultsResponse.json();
-        const rows = Array.isArray(resultsData?.data)
-          ? resultsData.data
-          : Array.isArray(resultsData)
-          ? resultsData
-          : [];
+
+        // Fonction utilitaire pour paginer les résultats (page_size max = 200)
+        const fetchAllResults = async () => {
+          const all = [];
+          let page = 1;
+          const maxPages = 50; // sécurité pour éviter boucle infinie
+
+          while (page <= maxPages) {
+            const url = `${RESULTS_BASE}/?page=${page}&page_size=${RESULTS_PAGE_SIZE}`;
+            const res = await fetch(url);
+            if (!res.ok) {
+              const text = await res.text().catch(() => '');
+              throw new Error(
+                `Erreur lors du chargement des résultats (${res.status}) ${text ? ': ' + text : ''}`
+              );
+            }
+            const json = await res.json();
+            const rows = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+            if (!rows.length) {
+              break;
+            }
+            all.push(...rows);
+            if (rows.length < RESULTS_PAGE_SIZE) {
+              // dernière page
+              break;
+            }
+            page += 1;
+          }
+
+          return all;
+        };
+
+        const rows = await fetchAllResults();
+        // debug : nombre de lignes récupérées
+        // console.debug('Résultats récupérés:', rows.length);
 
         if (isMounted) {
           setGeoJson(geoData);
@@ -334,12 +362,8 @@ const CarteLegislatives = ({ blocColors, swingDelta }) => {
 };
 
 CarteLegislatives.propTypes = {
-  blocColors: PropTypes.objectOf(PropTypes.string).isRequired,
+  blocColors: PropTypes.objectOf(PropTypes.string),
   swingDelta: PropTypes.any,
-};
-
-CarteLegislatives.defaultProps = {
-  swingDelta: null,
 };
 
 export default CarteLegislatives;
