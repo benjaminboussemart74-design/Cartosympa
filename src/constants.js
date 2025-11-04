@@ -12,6 +12,7 @@ export const BLOC_COLORS = {
 
 export const NUANCE_TO_BLOC = {
   NFP: 'Nouveau Front Populaire',
+  NUP: 'Nouveau Front Populaire',
   UG: 'Nouveau Front Populaire',
   G: 'Nouveau Front Populaire',
   SOC: 'Nouveau Front Populaire',
@@ -50,10 +51,12 @@ export const BLOC_FIELD_CANDIDATES = [
   'Bloc second tour',
   'BlocSecondTour',
   'Bloc_politique_second_tour',
+  'Nuance',
 ];
 
 export const CODE_CIRCO_FIELDS = [
   'CodeCirconscription',
+  'codeCirconscription',
   'code_circo',
   'Code_circonscription',
   'code_circonscription',
