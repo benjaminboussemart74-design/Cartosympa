@@ -12,41 +12,76 @@ import {
   WINNER_FLAG_FIELDS,
 } from './constants.js';
 
-const GEOJSON_URL_DEV =
-  '/geo/resources/contours-geographiques-des-circonscriptions-legislatives/20240613-191520/circonscriptions-legislatives-p10.geojson';
-const GEOJSON_URL_PROD =
-  'https://static.data.gouv.fr/resources/contours-geographiques-des-circonscriptions-legislatives/20240613-191520/circonscriptions-legislatives-p10.geojson';
-
-const RESULTS_BASE_DEV = '/tabular/api/resources/6682d0c255dcda5df20b1d90/data';
-const RESULTS_BASE_PROD =
-  'https://tabular-api.data.gouv.fr/api/resources/6682d0c255dcda5df20b1d90/data';
-
-const IS_LOCAL =
-  typeof window !== 'undefined' && /localhost|127\.0\.0\.1/.test(window.location.hostname);
-const GEOJSON_URL = IS_LOCAL ? GEOJSON_URL_DEV : GEOJSON_URL_PROD;
-const RESULTS_BASE = IS_LOCAL ? RESULTS_BASE_DEV : RESULTS_BASE_PROD;
-
-const RESULTS_PAGE_SIZE = 200;
-const MAX_RESULTS_PAGES = 200;
+const GEOJSON_P10_URL = '/data/circonscriptions-legislatives-p10.geojson';
+const GEOJSON_P20_URL = '/data/circonscriptions-legislatives-p20.geojson';
+const RESULTS_URL = '/data/results.json';
 
 const DEFAULT_FILL = '#cccccc';
 
-const BLOC_NAME_ALIASES = {
-  "ENSEMBLE !": 'Ensemble',
-  'ENSEMBLE (MAJORITE PRESIDENTIELLE)': 'Ensemble',
-  'MAJORITE PRESIDENTIELLE': 'Ensemble',
-  'RECONQUETE !': 'Rassemblement National',
-  'RN - RASSEMBLEMENT NATIONAL': 'Rassemblement National',
-  'RASS. NATIONAL': 'Rassemblement National',
-  'RASSSEMBLEMENT NATIONAL': 'Rassemblement National',
-  'NOUVEAU FRONT POPULAIRE': 'Nouveau Front Populaire',
-  'UNION DE LA GAUCHE': 'Nouveau Front Populaire',
-  'GAUCHE': 'Nouveau Front Populaire',
-  'UNION DE LA DROITE ET DU CENTRE': 'Divers droite',
-  'DROITE': 'Divers droite',
-  'CENTRE': 'Centre',
-  'DIVERS': 'Divers',
-};
+const DEPARTMENT_CODE_FIELDS = [
+  'CodeDepartement',
+  'codeDepartement',
+  'Code du département',
+  'Code Département',
+];
+
+const CIRCO_NUMBER_FIELDS = [
+  'Code de la circonscription',
+  'Code circonscription',
+  'codeCirconscriptionNumero',
+  'numero_circonscription',
+];
+
+const SHARED_METADATA_FIELDS = [
+  'Code du département',
+  'Code de la circonscription',
+  'Libellé du département',
+  'Libellé de la circonscription',
+  'Etat saisie',
+  'Inscrits',
+  'Abstentions',
+  'Votants',
+  'Blancs',
+  'Nuls',
+  'Exprimés',
+  '% Abs/Ins',
+  '% Vot/Ins',
+  '% Exp/Ins',
+  '% Exp/Vot',
+  '% Blancs/Ins',
+  '% Blancs/Vot',
+  '% Nuls/Ins',
+  '% Nuls/Vot',
+];
+
+const CANDIDATE_FIELD_MAPPINGS = [
+  {
+    fields: {
+      'N°Panneau': 'N°Panneau',
+      Sexe: 'Sexe',
+      Nom: 'Nom',
+      'Prénom': 'Prénom',
+      Nuance: 'Nuance',
+      Voix: 'Voix',
+      '% Voix/Ins': '% Voix/Ins',
+      '% Voix/Exp': '% Voix/Exp',
+      Elu: 'Elu',
+    },
+  },
+  {
+    fields: {
+      'N°Panneau': '__EMPTY',
+      Sexe: '__EMPTY_1',
+      Nom: '__EMPTY_2',
+      'Prénom': '__EMPTY_3',
+      Nuance: '__EMPTY_4',
+      Voix: '__EMPTY_5',
+      '% Voix/Ins': '__EMPTY_6',
+      '% Voix/Exp': '__EMPTY_7',
+      Elu: '__EMPTY_8',
+    },
+  },
+];
 
 const parseNumber = (value) => {
   if (value == null) {
@@ -135,16 +170,144 @@ const detectWinner = (candidates) => {
 };
 
 const getFeatureCode = (feature) =>
-  feature?.properties?.code_circo || feature?.properties?.CodeCirconscription;
+  feature?.properties?.code_circo ||
+  feature?.properties?.CodeCirconscription ||
+  feature?.properties?.codeCirconscription ||
+  feature?.properties?.Code_circonscription ||
+  feature?.properties?.code_circonscription;
 
 const getResultCode = (entry) => {
   for (const field of CODE_CIRCO_FIELDS) {
     const value = entry[field];
     if (value != null && value !== '') {
-      return String(value).trim();
+      const trimmed = String(value).trim();
+      if (trimmed && trimmed.length >= 4) {
+        return trimmed;
+      }
     }
   }
-  return undefined;
+
+  const departmentRaw = extractValue(entry, DEPARTMENT_CODE_FIELDS);
+  const circoRaw = extractValue(entry, CIRCO_NUMBER_FIELDS);
+
+  if (!departmentRaw || !circoRaw) {
+    return undefined;
+  }
+
+  const departmentString = String(departmentRaw).trim();
+  const circoString = String(circoRaw).trim();
+
+  if (!departmentString || !circoString) {
+    return undefined;
+  }
+
+  const normaliseNumeric = (value, minLength = 1) => {
+    const stringValue = String(value).trim();
+    if (!/^\d+$/.test(stringValue)) {
+      return stringValue;
+    }
+    const length = Math.max(minLength, stringValue.length);
+    return stringValue.padStart(length, '0');
+  };
+
+  const departmentCode = normaliseNumeric(departmentString, departmentString.length >= 3 ? departmentString.length : 2);
+  const circoCode = normaliseNumeric(circoString, 2);
+
+  return `${departmentCode}${circoCode}`;
+};
+
+const mergeFeatureCollections = (collections) => {
+  const features = [];
+
+  for (const collection of collections) {
+    if (collection?.type === 'FeatureCollection' && Array.isArray(collection.features)) {
+      features.push(...collection.features);
+    }
+  }
+
+  return { type: 'FeatureCollection', features };
+};
+
+const createCandidateFromEntry = (entry, fieldMapping, code) => {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const candidate = {};
+  let hasCoreData = false;
+
+  for (const [targetField, sourceField] of Object.entries(fieldMapping.fields)) {
+    if (!sourceField) {
+      continue;
+    }
+    const value = entry[sourceField];
+    if (value != null && value !== '') {
+      candidate[targetField] = value;
+      if (['Nom', 'Prénom', 'Nuance', 'Voix'].includes(targetField) && String(value).trim() !== '') {
+        hasCoreData = true;
+      }
+    }
+  }
+
+  if (!hasCoreData) {
+    return null;
+  }
+
+  for (const field of SHARED_METADATA_FIELDS) {
+    const value = entry[field];
+    if (value != null && value !== '') {
+      candidate[field] = value;
+    }
+  }
+
+  if (code) {
+    candidate.CodeCirconscription = code;
+    candidate.code_circo = code;
+  }
+
+  const departmentRaw = extractValue(entry, DEPARTMENT_CODE_FIELDS);
+  if (departmentRaw) {
+    const departmentString = String(departmentRaw).trim();
+    if (departmentString) {
+      candidate.CodeDepartement = departmentString;
+      candidate.codeDepartement = departmentString;
+    }
+  }
+
+  const circoNumber = extractValue(entry, CIRCO_NUMBER_FIELDS);
+  if (circoNumber) {
+    const circoString = String(circoNumber).trim();
+    if (circoString) {
+      candidate['Code de la circonscription'] = circoString;
+    }
+  }
+
+  if (!candidate.Bloc && candidate.Nuance) {
+    candidate.Bloc = candidate.Nuance;
+  }
+
+  return candidate;
+};
+
+const transformResultsRows = (rows) => {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  const processed = [];
+
+  for (const entry of rows) {
+    const code = getResultCode(entry);
+
+    for (const mapping of CANDIDATE_FIELD_MAPPINGS) {
+      const candidate = createCandidateFromEntry(entry, mapping, code);
+      if (candidate) {
+        processed.push(candidate);
+      }
+    }
+  }
+
+  return processed;
 };
 
 const buildPopupContent = (winner, blocName) => {
@@ -190,54 +353,52 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
     setLoading(true);
     setError(null);
 
-    const fetchAllResults = async () => {
-      const all = [];
-      let page = 1;
-
-      while (page <= MAX_RESULTS_PAGES) {
-        const url = `${RESULTS_BASE}?page=${page}&page_size=${RESULTS_PAGE_SIZE}`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          throw new Error(
-            `Erreur lors du chargement des résultats (${res.status})${text ? ` : ${text}` : ''}`
-          );
-        }
-        const json = await res.json();
-        const rows = Array.isArray(json?.data)
-          ? json.data
-          : Array.isArray(json)
-          ? json
-          : [];
-        if (!rows.length) {
-          break;
-        }
-        all.push(...rows);
-        if (rows.length < RESULTS_PAGE_SIZE) {
-          break;
-        }
-        page += 1;
-      }
-
-      return all;
-    };
-
     const fetchData = async () => {
       try {
-        const [geoResponse, rows] = await Promise.all([fetch(GEOJSON_URL), fetchAllResults()]);
+        const [p10Response, p20Response, resultsResponse] = await Promise.all([
+          fetch(GEOJSON_P10_URL),
+          fetch(GEOJSON_P20_URL),
+          fetch(RESULTS_URL),
+        ]);
 
-        if (!geoResponse.ok) {
-          const text = await geoResponse.text().catch(() => '');
+        if (!p10Response.ok) {
+          const text = await p10Response.text().catch(() => '');
           throw new Error(
-            `Erreur lors du chargement des contours (${geoResponse.status})${text ? ` : ${text}` : ''}`
+            `Erreur lors du chargement des contours P10 (${p10Response.status})${text ? ` : ${text}` : ''}`
           );
         }
 
-        const geoData = await geoResponse.json();
+        if (!p20Response.ok) {
+          const text = await p20Response.text().catch(() => '');
+          throw new Error(
+            `Erreur lors du chargement des contours P20 (${p20Response.status})${text ? ` : ${text}` : ''}`
+          );
+        }
+
+        if (!resultsResponse.ok) {
+          const text = await resultsResponse.text().catch(() => '');
+          throw new Error(
+            `Erreur lors du chargement des résultats (${resultsResponse.status})${text ? ` : ${text}` : ''}`
+          );
+        }
+
+        const [geoP10, geoP20, rawResults] = await Promise.all([
+          p10Response.json(),
+          p20Response.json(),
+          resultsResponse.json(),
+        ]);
+
+        const mergedGeoJson = mergeFeatureCollections([geoP10, geoP20]);
+        const rows = Array.isArray(rawResults?.data)
+          ? rawResults.data
+          : Array.isArray(rawResults)
+          ? rawResults
+          : [];
+        const processedResults = transformResultsRows(rows);
 
         if (isMounted) {
-          setGeoJson(geoData);
-          setResults(rows);
+          setGeoJson(mergedGeoJson);
+          setResults(processedResults);
           setLoading(false);
         }
       } catch (err) {
