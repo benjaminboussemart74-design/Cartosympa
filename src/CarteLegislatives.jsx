@@ -5,11 +5,13 @@ import {
   BLOC_COLORS,
   BLOC_FIELD_CANDIDATES,
   CODE_CIRCO_FIELDS,
+  DEFAULT_BLOC,
   IDENTITY_FIELDS,
-  NUANCE_TO_BLOC,
   PARTY_FIELDS,
   SCORE_FIELDS,
   WINNER_FLAG_FIELDS,
+  getBlocLabel,
+  normaliseBloc,
 } from './constants.js';
 
 const GEOJSON_URL =
@@ -17,7 +19,7 @@ const GEOJSON_URL =
 const RESULTS_URL =
   'https://tabular-api.data.gouv.fr/api/resources/6682d0c255dcda5df20b1d90/data/?page_size=1000';
 
-const DEFAULT_FILL = '#cccccc';
+const DEFAULT_FILL = BLOC_COLORS.Divers || '#B0B0B0';
 
 const parseNumber = (value) => {
   if (value == null) {
@@ -32,40 +34,6 @@ const parseNumber = (value) => {
     return Number.isNaN(parsed) ? Number.NaN : parsed;
   }
   return Number.NaN;
-};
-
-const normaliseBlocName = (bloc) => {
-  if (!bloc) {
-    return undefined;
-  }
-  const raw = String(bloc).trim();
-  if (!raw) {
-    return undefined;
-  }
-  const upper = raw.toUpperCase();
-  if (upper in NUANCE_TO_BLOC) {
-    return NUANCE_TO_BLOC[upper];
-  }
-  const alias = {
-    "ENSEMBLE !": 'Ensemble',
-    'ENSEMBLE (MAJORITE PRESIDENTIELLE)': 'Ensemble',
-    'MAJORITE PRESIDENTIELLE': 'Ensemble',
-    'RECONQUETE !': 'Rassemblement National',
-    'RN - RASSEMBLEMENT NATIONAL': 'Rassemblement National',
-    'RASS. NATIONAL': 'Rassemblement National',
-    'RASSSEMBLEMENT NATIONAL': 'Rassemblement National',
-    'NOUVEAU FRONT POPULAIRE': 'Nouveau Front Populaire',
-    'UNION DE LA GAUCHE': 'Nouveau Front Populaire',
-    'GAUCHE': 'Nouveau Front Populaire',
-    'UNION DE LA DROITE ET DU CENTRE': 'Divers droite',
-    'DROITE': 'Divers droite',
-    'CENTRE': 'Centre',
-    'DIVERS': 'Divers',
-  };
-  if (alias[upper]) {
-    return alias[upper];
-  }
-  return raw;
 };
 
 const extractValue = (entry, candidates) => {
@@ -130,6 +98,7 @@ const buildPopupContent = (winner, blocName) => {
   }
   const identity = extractValue(winner, IDENTITY_FIELDS) || '';
   const party = extractValue(winner, PARTY_FIELDS);
+  const blocLabel = blocName ? getBlocLabel(blocName) : undefined;
   const voteLines = SCORE_FIELDS.map((field) => {
     const value = winner[field];
     if (value == null || value === '') {
@@ -144,7 +113,7 @@ const buildPopupContent = (winner, blocName) => {
 
   const lines = [
     identity ? `<strong>${identity}</strong>` : undefined,
-    blocName ? `<span>${blocName}</span>` : undefined,
+    blocLabel ? `<span>${blocLabel}</span>` : undefined,
     party ? `<span>${party}</span>` : undefined,
     ...voteLines.slice(0, 4),
   ].filter(Boolean);
@@ -234,7 +203,8 @@ const CarteLegislatives = ({ blocColors, swingDelta }) => {
       const winner = detectWinner(candidates);
       const blocValue = extractValue(winner, BLOC_FIELD_CANDIDATES);
       const nuance = extractValue(winner, PARTY_FIELDS);
-      const bloc = normaliseBlocName(blocValue) || normaliseBlocName(nuance) || 'Autres';
+      const bloc =
+        normaliseBloc(blocValue) || normaliseBloc(nuance) || DEFAULT_BLOC;
       winners.set(code, { winner, bloc });
 
       const total = totals.get(bloc) ?? 0;
@@ -250,6 +220,7 @@ const CarteLegislatives = ({ blocColors, swingDelta }) => {
   const summaryItems = useMemo(() => {
     const entries = Array.from(blocTotals.entries()).map(([bloc, total]) => ({
       bloc,
+      label: getBlocLabel(bloc),
       total,
       color: blocColors[bloc] ?? DEFAULT_FILL,
     }));
@@ -319,7 +290,7 @@ const CarteLegislatives = ({ blocColors, swingDelta }) => {
                 className="summary-color"
                 style={{ backgroundColor: item.color }}
               />
-              <span className="summary-label">{item.bloc}</span>
+              <span className="summary-label">{item.label}</span>
               <span className="summary-value">{item.total}</span>
             </li>
           ))}
