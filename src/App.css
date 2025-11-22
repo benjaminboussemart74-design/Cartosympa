@@ -24,6 +24,66 @@ header p {
   color: #52606d;
 }
 
+.controls {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.control-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.control-value {
+  background: #e0f2fe;
+  color: #0b65c2;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-weight: 700;
+}
+
+.control-label {
+  font-weight: 600;
+  color: #1f2933;
+}
+
+.control-inputs {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.control-inputs input[type='range'] {
+  width: 100%;
+}
+
+.control-inputs input[type='number'] {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+}
+
+.control-help {
+  margin: 0;
+  color: #52606d;
+  font-size: 0.95rem;
+}
+
 .legend {
   background: #ffffff;
   border-radius: 0.75rem;
@@ -127,11 +187,11 @@ header p {
   font-size: 1rem;
 }
 
-.swing-placeholder {
+.swing-note {
   margin: 0;
   padding-top: 0.5rem;
-  font-style: italic;
-  color: #52606d;
+  color: #0b65c2;
+  font-weight: 600;
 }
 
 .status {
