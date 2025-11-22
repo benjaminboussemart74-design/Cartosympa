@@ -163,6 +163,12 @@ header p {
   gap: 0.5rem;
 }
 
+.scenario-note {
+  margin: 0;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
 .map-summary li {
   display: grid;
   grid-template-columns: 1.5rem minmax(0, 1fr) auto;

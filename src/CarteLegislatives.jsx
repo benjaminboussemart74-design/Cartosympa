@@ -6,11 +6,11 @@ import {
   BLOC_FIELD_CANDIDATES,
   CODE_CIRCO_FIELDS,
   IDENTITY_FIELDS,
-  NUANCE_TO_BLOC,
   PARTY_FIELDS,
   SCORE_FIELDS,
   WINNER_FLAG_FIELDS,
 } from './constants.js';
+import { normaliseBlocName, simulateElection } from './simulation.js';
 
 const GEOJSON_P10_URL = '/data/circonscriptions-legislatives-p10.geojson';
 const GEOJSON_P20_URL = '/data/circonscriptions-legislatives-p20.geojson';
@@ -96,40 +96,6 @@ const parseNumber = (value) => {
     return Number.isNaN(parsed) ? Number.NaN : parsed;
   }
   return Number.NaN;
-};
-
-const normaliseBlocName = (bloc) => {
-  if (!bloc) {
-    return undefined;
-  }
-  const raw = String(bloc).trim();
-  if (!raw) {
-    return undefined;
-  }
-  const upper = raw.toUpperCase();
-  if (upper in NUANCE_TO_BLOC) {
-    return NUANCE_TO_BLOC[upper];
-  }
-  const alias = {
-    "ENSEMBLE !": 'Ensemble',
-    'ENSEMBLE (MAJORITE PRESIDENTIELLE)': 'Ensemble',
-    'MAJORITE PRESIDENTIELLE': 'Ensemble',
-    'RECONQUETE !': 'Rassemblement National',
-    'RN - RASSEMBLEMENT NATIONAL': 'Rassemblement National',
-    'RASS. NATIONAL': 'Rassemblement National',
-    'RASSSEMBLEMENT NATIONAL': 'Rassemblement National',
-    'NOUVEAU FRONT POPULAIRE': 'Nouveau Front Populaire',
-    'UNION DE LA GAUCHE': 'Nouveau Front Populaire',
-    'GAUCHE': 'Nouveau Front Populaire',
-    'UNION DE LA DROITE ET DU CENTRE': 'Divers droite',
-    'DROITE': 'Divers droite',
-    'CENTRE': 'Centre',
-    'DIVERS': 'Divers',
-  };
-  if (alias[upper]) {
-    return alias[upper];
-  }
-  return raw;
 };
 
 const extractValue = (entry, candidates) => {
@@ -381,7 +347,7 @@ const buildPopupContent = (winner, blocName) => {
   return `<div class="popup-content">${lines.join('<br/>')}</div>`;
 };
 
-const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
+const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null, selectedScenario = null }) => {
   const [geoJson, setGeoJson] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -455,7 +421,7 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
     };
   }, []);
 
-  const { winnersByCirco, blocTotals } = useMemo(() => {
+  const { winnersByCirco, blocTotals, candidatesByCirco } = useMemo(() => {
     const candidatesByCirco = new Map();
     const totals = {};
 
@@ -508,15 +474,24 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
       });
     }
 
-    return { winnersByCirco: winners, blocTotals: totals };
+    return { winnersByCirco: winners, blocTotals: totals, candidatesByCirco };
   }, [results]);
+
+  const simulation = useMemo(() => simulateElection(candidatesByCirco, selectedScenario), [
+    candidatesByCirco,
+    selectedScenario,
+  ]);
+
+  const hasSimulatedData = selectedScenario?.rules && simulation.winnersByCirco.size > 0;
+  const winnersForMap = hasSimulatedData ? simulation.winnersByCirco : winnersByCirco;
+  const blocTotalsForSummary = hasSimulatedData ? simulation.blocTotals : blocTotals;
 
   const geoJsonHandlers = useMemo(() => {
     const swingThreshold = Number.isFinite(swingDelta) ? clamp(swingDelta, 0, 30) : null;
 
     const style = (feature) => {
       const code = getFeatureCode(feature);
-      const data = code ? winnersByCirco.get(code) : undefined;
+      const data = code ? winnersForMap.get(code) : undefined;
       const blocName = data?.blocName;
       const margin = data?.margin;
       const baseColor = blocName && blocColors[blocName] ? blocColors[blocName] : DEFAULT_FILL;
@@ -539,7 +514,7 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
 
     const onEachFeature = (feature, layer) => {
       const code = getFeatureCode(feature);
-      const data = code ? winnersByCirco.get(code) : undefined;
+      const data = code ? winnersForMap.get(code) : undefined;
       const popupHtml = buildPopupContent(data?.winner, data?.blocName);
       layer.bindPopup(popupHtml);
       layer.on('mouseover', () => layer.openPopup());
@@ -547,13 +522,13 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
     };
 
     return { style, onEachFeature };
-  }, [blocColors, swingDelta, winnersByCirco]);
+  }, [blocColors, swingDelta, winnersForMap]);
 
   const blocEntries = useMemo(() => {
-    return Object.entries(blocTotals)
+    return Object.entries(blocTotalsForSummary)
       .map(([bloc, count]) => ({ bloc, count, color: blocColors[bloc] || DEFAULT_FILL }))
       .sort((a, b) => b.count - a.count);
-  }, [blocTotals, blocColors]);
+  }, [blocTotalsForSummary, blocColors]);
 
   if (loading) {
     return <div className="status">Chargement des données…</div>;
@@ -566,6 +541,12 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
   if (!geoJson) {
     return <div className="status">Aucun contour disponible.</div>;
   }
+
+  const scenarioMessage = !selectedScenario || !selectedScenario.rules
+    ? 'Aucun scénario sélectionné : affichage des résultats bruts.'
+    : hasSimulatedData
+    ? selectedScenario.description
+    : "Données insuffisantes pour simuler ce scénario.";
 
   return (
     <section className="map-container">
@@ -584,6 +565,7 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
 
       <aside className="map-summary">
         <h2>Répartition des blocs vainqueurs</h2>
+        <p className="scenario-note">{scenarioMessage}</p>
         <ul>
           {blocEntries.map(({ bloc, count, color }) => (
             <li key={bloc}>
@@ -598,6 +580,9 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
             Seuil d&apos;alerte swing : {swingDelta.toFixed(1)} points d&apos;écart.
           </p>
         )}
+        {selectedScenario?.rules && !hasSimulatedData && (
+          <p className="swing-placeholder">Projection non disponible pour ce scénario.</p>
+        )}
       </aside>
     </section>
   );
@@ -606,6 +591,12 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null }) => {
 CarteLegislatives.propTypes = {
   blocColors: PropTypes.objectOf(PropTypes.string),
   swingDelta: PropTypes.number,
+  selectedScenario: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    label: PropTypes.string.isRequired,
+    description: PropTypes.string,
+    rules: PropTypes.object,
+  }),
 };
 
 export default CarteLegislatives;

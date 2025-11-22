@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import CarteLegislatives from './CarteLegislatives.jsx';
 import Legende from './Legende.jsx';
 import { BLOC_COLORS } from './constants.js';
+import { SCENARIOS, getScenarioById } from './simulation.js';
 import './App.css';
 
 function App() {
@@ -21,8 +22,7 @@ function App() {
       <header>
         <h1>Cartographie des circonscriptions législatives</h1>
         <p>
-          Exploration des résultats par circonscription et visualisation des blocs
-          politiques vainqueurs.
+          Exploration des résultats par circonscription et visualisation des blocs politiques vainqueurs.
         </p>
       </header>
 
@@ -60,7 +60,7 @@ function App() {
       </section>
 
       <Legende blocColors={BLOC_COLORS} />
-      <CarteLegislatives blocColors={BLOC_COLORS} swingDelta={swingDelta} />
+      <CarteLegislatives blocColors={BLOC_COLORS} selectedScenario={selectedScenario} />
     </div>
   );
 }
