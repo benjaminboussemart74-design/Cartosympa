@@ -271,6 +271,29 @@ const createCandidateFromEntry = (entry, fieldMapping, code) => {
   return candidate;
 };
 
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const lightenColor = (hex, factor) => {
+  if (!hex || typeof hex !== 'string' || !/^#?[0-9a-fA-F]{6}$/.test(hex)) {
+    return hex;
+  }
+
+  const normalised = hex.startsWith('#') ? hex.slice(1) : hex;
+  const int = Number.parseInt(normalised, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+
+  const safeFactor = clamp(factor, 0, 1);
+  const mix = (channel) => Math.round(channel + (255 - channel) * safeFactor);
+
+  const components = [mix(r), mix(g), mix(b)]
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `#${components}`;
+};
+
 const transformResultsRows = (rows) => {
   if (!Array.isArray(rows)) {
     return [];
@@ -424,9 +447,30 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null, select
       const blocName = normaliseBlocName(blocRaw) || 'Autres';
 
       totals[blocName] = (totals[blocName] || 0) + 1;
+      const scores = candidates
+        .map((candidate) => {
+          let bestScore = Number.NEGATIVE_INFINITY;
+          for (const scoreField of SCORE_FIELDS) {
+            const value = parseNumber(candidate[scoreField]);
+            if (Number.isFinite(value) && value > bestScore) {
+              bestScore = value;
+            }
+          }
+          return { candidate, score: bestScore };
+        })
+        .filter(({ score }) => Number.isFinite(score))
+        .sort((a, b) => b.score - a.score);
+
+      const topScore = scores[0]?.score ?? null;
+      const secondScore = scores[1]?.score ?? null;
+      const margin =
+        topScore != null && secondScore != null
+          ? Math.max(0, topScore - secondScore)
+          : null;
       winners.set(code, {
         winner,
         blocName,
+        margin,
       });
     }
 
@@ -443,19 +487,28 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null, select
   const blocTotalsForSummary = hasSimulatedData ? simulation.blocTotals : blocTotals;
 
   const geoJsonHandlers = useMemo(() => {
-    const baseOpacity = swingDelta != null ? Math.min(0.9, 0.6 + Math.abs(swingDelta) * 0.1) : 0.7;
+    const swingThreshold = Number.isFinite(swingDelta) ? clamp(swingDelta, 0, 30) : null;
 
     const style = (feature) => {
       const code = getFeatureCode(feature);
       const data = code ? winnersForMap.get(code) : undefined;
       const blocName = data?.blocName;
-      const fillColor = blocName && blocColors[blocName] ? blocColors[blocName] : DEFAULT_FILL;
+      const margin = data?.margin;
+      const baseColor = blocName && blocColors[blocName] ? blocColors[blocName] : DEFAULT_FILL;
+
+      let intensity = 0;
+      if (swingThreshold != null && Number.isFinite(margin)) {
+        intensity = clamp((swingThreshold - margin) / Math.max(swingThreshold, 0.0001), 0, 1);
+      }
+
+      const fillColor = intensity > 0 ? lightenColor(baseColor, 0.15 + intensity * 0.45) : baseColor;
+      const fillOpacity = 0.55 + intensity * 0.35;
 
       return {
         color: '#1f2933',
         weight: 1,
         fillColor,
-        fillOpacity: baseOpacity,
+        fillOpacity,
       };
     };
 
@@ -522,9 +575,9 @@ const CarteLegislatives = ({ blocColors = BLOC_COLORS, swingDelta = null, select
             </li>
           ))}
         </ul>
-        {swingDelta == null && (
-          <p className="swing-placeholder">
-            Les variations de swing seront bientôt disponibles.
+        {Number.isFinite(swingDelta) && (
+          <p className="swing-note">
+            Seuil d&apos;alerte swing : {swingDelta.toFixed(1)} points d&apos;écart.
           </p>
         )}
         {selectedScenario?.rules && !hasSimulatedData && (

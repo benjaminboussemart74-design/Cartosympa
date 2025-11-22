@@ -6,9 +6,16 @@ import { SCENARIOS, getScenarioById } from './simulation.js';
 import './App.css';
 
 function App() {
-  const [selectedScenarioId, setSelectedScenarioId] = useState('none');
+  const [swingDelta, setSwingDelta] = useState(5);
 
-  const selectedScenario = useMemo(() => getScenarioById(selectedScenarioId), [selectedScenarioId]);
+  const handleSwingChange = (value) => {
+    const parsed = Number.parseFloat(value);
+    if (Number.isNaN(parsed)) {
+      setSwingDelta(0);
+      return;
+    }
+    setSwingDelta(Math.max(0, Math.min(15, parsed)));
+  };
 
   return (
     <div className="app">
@@ -19,25 +26,38 @@ function App() {
         </p>
       </header>
 
-      <div className="scenario-panel">
-        <div>
-          <label htmlFor="scenario">Choix du scénario :</label>
-          <select
-            id="scenario"
-            value={selectedScenarioId}
-            onChange={(event) => setSelectedScenarioId(event.target.value)}
-          >
-            {SCENARIOS.map((scenario) => (
-              <option key={scenario.id} value={scenario.id}>
-                {scenario.label}
-              </option>
-            ))}
-          </select>
+      <section className="controls">
+        <div className="control-header">
+          <h2>Variation de swing</h2>
+          <span className="control-value">{swingDelta.toFixed(1)} pts</span>
         </div>
-        <p className="scenario-description">
-          {selectedScenario?.description || 'Sélectionnez un scénario pour lancer une simulation.'}
+        <label htmlFor="swing-delta" className="control-label">
+          Seuil d&apos;écart entre les deux premiers candidats (en points)
+        </label>
+        <div className="control-inputs">
+          <input
+            id="swing-delta"
+            type="range"
+            min="0"
+            max="15"
+            step="0.5"
+            value={swingDelta}
+            onChange={(event) => handleSwingChange(event.target.value)}
+          />
+          <input
+            type="number"
+            min="0"
+            max="15"
+            step="0.5"
+            value={swingDelta}
+            onChange={(event) => handleSwingChange(event.target.value)}
+          />
+        </div>
+        <p className="control-help">
+          Les circonscriptions où l&apos;écart est inférieur ou égal à ce seuil sont
+          mises en évidence (couleurs éclaircies et opacité renforcée).
         </p>
-      </div>
+      </section>
 
       <Legende blocColors={BLOC_COLORS} />
       <CarteLegislatives blocColors={BLOC_COLORS} selectedScenario={selectedScenario} />

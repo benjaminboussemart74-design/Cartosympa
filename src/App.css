@@ -24,34 +24,61 @@ header p {
   color: #52606d;
 }
 
-.scenario-panel {
+.controls {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 1rem;
-  background: #ffffff;
-  border-radius: 0.75rem;
-  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.12);
 }
 
-.scenario-panel label {
+.control-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.control-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.control-value {
+  background: #e0f2fe;
+  color: #0b65c2;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-weight: 700;
+}
+
+.control-label {
   font-weight: 600;
   color: #1f2933;
-  display: block;
-  margin-bottom: 0.35rem;
 }
 
-.scenario-panel select {
-  min-width: 240px;
-  padding: 0.5rem 0.75rem;
-  font-size: 1rem;
+.control-inputs {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.control-inputs input[type='range'] {
+  width: 100%;
+}
+
+.control-inputs input[type='number'] {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
   border-radius: 0.5rem;
-  border: 1px solid rgba(15, 23, 42, 0.15);
-  background: #f8fafc;
-  color: #1f2933;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
 }
 
-.scenario-description {
+.control-help {
   margin: 0;
   color: #52606d;
   font-size: 0.95rem;
@@ -166,11 +193,11 @@ header p {
   font-size: 1rem;
 }
 
-.swing-placeholder {
+.swing-note {
   margin: 0;
   padding-top: 0.5rem;
-  font-style: italic;
-  color: #52606d;
+  color: #0b65c2;
+  font-weight: 600;
 }
 
 .status {
