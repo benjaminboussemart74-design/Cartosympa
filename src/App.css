@@ -24,6 +24,39 @@ header p {
   color: #52606d;
 }
 
+.scenario-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.12);
+}
+
+.scenario-panel label {
+  font-weight: 600;
+  color: #1f2933;
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.scenario-panel select {
+  min-width: 240px;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  background: #f8fafc;
+  color: #1f2933;
+}
+
+.scenario-description {
+  margin: 0;
+  color: #52606d;
+  font-size: 0.95rem;
+}
+
 .legend {
   background: #ffffff;
   border-radius: 0.75rem;
@@ -101,6 +134,12 @@ header p {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.scenario-note {
+  margin: 0;
+  color: #334155;
+  font-size: 0.95rem;
 }
 
 .map-summary li {
